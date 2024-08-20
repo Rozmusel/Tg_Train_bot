@@ -7,35 +7,21 @@
 
 FILE* List = NULL;
 
-int day_type();	// Возращает номер блока с учётом истории использования
+int get_next_type();	// Возращает номер блока с учётом истории использования
+int get_next_list();	// Возвращает номер списка в блоке с наименее использованными упражнениями
 void block_finder(int block);	// Находит и наводит курсор на нужный блок
-int main_main() {
-	setlocale(LC_ALL, "rus");
 
+int update_list_id(int* list_id) {
 	errno_t read_res = NULL;	// Хранение результата открытия файла
 	read_res = fopen_s(&List, "List.txt", "r+");
 	if (read_res != 0) return -1;
 
-	int cursor = 0;
-	typedef enum {
-		LEGS = 1,
-		CHEST = 2,
-		BACK = 3
-	} mode;
-	switch (day_type(&cursor)) {
-	case LEGS:
-		block_finder(LEGS);
-
-		break;
-	case CHEST:
-		block_finder(CHEST);
-		break;
-	case BACK:
-		block_finder(BACK);
-		break;
-	}
+	*list_id = get_next_type();
+	*++list_id = get_next_list(list_id);
+	return *list_id;
 }
-int day_type() {
+
+int get_next_type() {
 	int day = 0;
 	int counter = 0;
 	int cursor = 0;
@@ -73,6 +59,11 @@ int day_type() {
 		cursor = 0;
 	}
 	return day;
+}
+
+get_next_list(int* list_id) {
+	block_finder(*list_id);
+
 }
 
 void block_finder(int block) {
