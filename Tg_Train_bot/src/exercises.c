@@ -2,18 +2,18 @@
 #include <windows.h>
 #include <locale.h>
 
-#define STRSIZE 128	// Максимальная длина принимаемой строки
-#define NUMSIZE 16	// Максимальная длина считываемого числа
+#define STRSIZE 128	// Maximum length of accepted string
+#define NUMSIZE 16	// Maximum length of the number to be read
 #define EXRSIZE 16
 
 FILE* List = NULL;
 
-int get_next_type();	// Возращает номер блока с учётом истории использования
-int get_next_list(int* list_id);	// Возвращает номер списка в блоке с наименее использованными упражнениями
-void block_finder(int block);	// Находит и наводит курсор на нужный блок
+int get_next_type();	// Returns the block number taking into account the usage history
+int get_next_list(int* list_id);	// Returns the list number in the block with the least used exercises
+void block_finder(int block);	// Finds and hovers the cursor over the desired block
 
 int update_list_id(int* list_id) {
-	errno_t read_res = NULL;	// Хранение результата открытия файла
+	errno_t read_res = NULL;	// Storing the result of opening a file
 	read_res = fopen_s(&List, "List.txt", "r+");
 	if (read_res != 0) return -1;
 
@@ -74,7 +74,7 @@ get_next_list(int* list_id) {
 		fgets(str, STRSIZE, List);
 		if (str[cursor] == '*' ) break;
 		if (str[cursor] == '#') counter++;
-		while (str[cursor] != '>' || str[cursor] != '/') {
+		while (str[cursor] != '>' && str[cursor] != '/') {
 			cursor++;
 		}
 		if (str[cursor] == '/') continue;
