@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include <time.h>
 
 #include <curl/curl.h>
 #include <json-c/json.h>
@@ -16,41 +15,45 @@ typedef struct {
 } response_t;
 
 
-// ? memory leak
 static size_t write_callback(char* data, size_t size, size_t nmemb, void* clientp) {
 	size_t realsize = size * nmemb;
 	response_t* resp = (response_t*)clientp;
 
 	char* ptr = realloc(resp->data, resp->size + realsize + 1);
-	if (!ptr) {
+	if (ptr == NULL) {
 		printf("%s\n", "ERROR: Error during memory reallocation for telegram response");
-		//free(resp->data);
 		return 0;
 	}
-	//free(resp->data);
 
 	resp->data = ptr;
 	memcpy(&(resp->data[resp->size]), data, realsize);
 	resp->size += realsize;
-	resp->data[resp->size] = 0;
+	resp->data[resp->size] = '\0';
 
 	return realsize;
 }
 
 
-char* get_method_url(char* token, char* method) {
-	size_t url_size = strlen("https://api.telegram.org/bot") + strlen(token) + strlen(method) + 1;
-	char* url = malloc(url_size);
-	if (url == NULL) {
-		printf("%s\n", "ERROR: Error during memory allocation to create a method url");
-		return;
-	}
+void get_method_url(char* url, size_t url_size, char* token, char* method) {
+	sprintf_s(url, url_size, "https://api.telegram.org/bot%s/%s?", token, method);
+}
 
-	strcpy_s(url, url_size, "https://api.telegram.org/bot");
-	strcat_s(url, url_size, token);
-	strcat_s(url, url_size, method);
 
-	return url;
+errno_t add_url_param_str(char* url, size_t url_size, char* key, char* value) {
+	char data[1024];
+
+	sprintf_s(data, 1024, "%s=%s&", key, value);
+
+	return strcat_s(url, url_size, data);
+}
+
+
+errno_t add_url_param_uint(char* url, size_t url_size, char* key, uint64_t value) {
+	char val[1024];
+
+	sprintf_s(val, 1024, "%lld", value);
+
+	return add_url_param_str(url, url_size, key, val);
 }
 
 
@@ -144,6 +147,8 @@ BOT* bot_create() {
 		return NULL;
 	}
 
+	bot->last_update_id = 0;
+
 	return bot;
 }
 
@@ -160,7 +165,9 @@ void bot_start(BOT* bot, void (*callback)(message_t)) {
 		uint64_t updates_count = bot_get_updates(bot, updates);
 		
 		for (uint64_t i = 0; i < updates_count; ++i) {
-			(*callback)(updates[i].message);
+			update_t update = updates[i];
+			(*callback)(update.message);
+			bot->last_update_id = max(bot->last_update_id, update.update_id);
 		}
 
 		Sleep(1000);
@@ -176,22 +183,30 @@ uint64_t bot_get_updates(BOT* bot, update_t* updates) {
 		return 0;
 	}
 
-	char* url = get_method_url(bot->token, "/getUpdates");
+	char url[4096];
+	get_method_url(url, 4096, bot->token, "getUpdates");
+
+	if (add_url_param_uint(url, 4096, "offset", bot->last_update_id + 1)) {
+		printf("%s\n", "ERROR: Error while adding the 'offset' parameter to the request url");
+		return 0;
+	}
+
+	if (add_url_param_uint(url, 4096, "timeout", 1)) {
+		printf("%s\n", "ERROR: Error while adding the 'timeout' parameter to the request url");
+		return 0;
+	}
+	
 	if (curl_easy_setopt(bot->curl, CURLOPT_URL, url) != CURLE_OK) {
 		printf("%s\n", "ERROR: Error during setting the curl flag CURLOPT_URL");
-		free(url);
 		return 0;
 	}
 
 	if (curl_easy_perform(bot->curl) != CURLE_OK) {
 		printf("%s\n", "ERROR: Error during https request execution");
-		free(url);
 		return 0;
 	}
-	free(url);
 	
 	json_object* obj = json_tokener_parse(buffer.data);
-	// free(buffer.data); // ? mem leak
 	
 	if (json_object_get_boolean(json_object_object_get(obj, "ok")) == 0) {
 		printf("%s\n", "ERROR: The response from the telegram server is false");

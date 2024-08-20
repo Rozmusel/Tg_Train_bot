@@ -13,6 +13,7 @@
 typedef struct {
 	CURL* curl;
 	char* token;
+	uint64_t last_update_id;
 } BOT;
 
 
