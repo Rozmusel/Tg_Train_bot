@@ -9,7 +9,7 @@ FILE* List = NULL;
 
 int day_type();	// Возращает номер блока с учётом истории использования
 void block_finder(int block);	// Находит и наводит курсор на нужный блок
-int main() {
+int main_main() {
 	setlocale(LC_ALL, "rus");
 
 	errno_t read_res = NULL;	// Хранение результата открытия файла
