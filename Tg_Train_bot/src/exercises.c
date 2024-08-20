@@ -4,11 +4,12 @@
 
 #define STRSIZE 128	// ћаксимальна€ длина принимаемой строки
 #define NUMSIZE 16	// ћаксимальна€ длина считываемого числа
+#define EXRSIZE 16
 
 FILE* List = NULL;
 
 int get_next_type();	// ¬озращает номер блока с учЄтом истории использовани€
-int get_next_list();	// ¬озвращает номер списка в блоке с наименее использованными упражнени€ми
+int get_next_list(int* list_id);	// ¬озвращает номер списка в блоке с наименее использованными упражнени€ми
 void block_finder(int block);	// Ќаходит и наводит курсор на нужный блок
 
 int update_list_id(int* list_id) {
@@ -30,8 +31,6 @@ int get_next_type() {
 	while (!feof(List)) {
 		fgets(str, STRSIZE, List);
 		if (str[cursor] != '*') continue;
-		(cursor)++;
-		if (str[cursor] != 'b') continue;
 		counter++;
 		while (str[cursor] != '>') {
 			(cursor)++;
@@ -64,6 +63,28 @@ int get_next_type() {
 get_next_list(int* list_id) {
 	block_finder(*list_id);
 
+	int cursor = 0;
+	char str[STRSIZE] = { 0 };
+	char priority[EXRSIZE] = { 0 };
+	int counter = 0;
+	int imin = 1;
+
+	while (!feof(List)) {
+		cursor = 0;
+		fgets(str, STRSIZE, List);
+		if (str[cursor] == '*' ) break;
+		if (str[cursor] == '#') counter++;
+		while (str[cursor] != '>' || str[cursor] != '/') {
+			cursor++;
+		}
+		if (str[cursor] == '/') continue;
+		cursor++;
+		priority[counter] += (int)str[cursor] - 48;
+	}
+	for (int i = 2; i <= counter; i++) {
+		if (priority[i] < priority[imin]) imin = i;
+	}
+	return imin;
 }
 
 void block_finder(int block) {
@@ -72,10 +93,7 @@ void block_finder(int block) {
 	int counter = 0;
 	while (!feof(List) && counter < block) {
 		fgets(str, STRSIZE, List);
-		if (str[cursor] != '*') continue;
-		(cursor)++;
-		if (str[cursor] != 'b') continue;
-		counter++;
+		if (str[cursor] == '*') counter++;
 	}
 	return 0;
 }
