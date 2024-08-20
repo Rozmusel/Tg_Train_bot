@@ -91,13 +91,33 @@ user_t parse_user(json_object* json_user) {
 }
 
 
+chat_t parse_chat(json_object* json_chat) {
+	char* type = json_object_get_string(json_object_object_get(json_chat, "type"));
+
+	chat_t chat = {
+		json_object_get_uint64(json_object_object_get(json_chat, "id")),
+		"",
+	};
+
+	if (type != NULL) {
+		size_t type_size = strlen(type) + 1;
+		chat.type = malloc(type_size);
+		if (chat.type != NULL) memcpy(chat.type, type, type_size);
+	}
+
+	return chat;
+}
+
+
 message_t parse_message(json_object* json_message) {
 	user_t user = parse_user(json_object_object_get(json_message, "from"));
+	chat_t chat = parse_chat(json_object_object_get(json_message, "chat"));
 
 	char* text = json_object_get_string(json_object_object_get(json_message, "text"));
 
 	message_t message = {
 		user,
+		chat,
 		""
 	};
 
@@ -159,14 +179,14 @@ void bot_delete(BOT* bot) {
 }
 
 
-void bot_start(BOT* bot, void (*callback)(message_t)) {
+void bot_start(BOT* bot, void (*callback)(BOT*, message_t)) {
 	while (1) {
 		update_t updates[100] = { NULL };
 		uint64_t updates_count = bot_get_updates(bot, updates);
 		
 		for (uint64_t i = 0; i < updates_count; ++i) {
 			update_t update = updates[i];
-			(*callback)(update.message);
+			(*callback)(bot, update.message);
 			bot->last_update_id = max(bot->last_update_id, update.update_id);
 		}
 
@@ -184,14 +204,14 @@ uint64_t bot_get_updates(BOT* bot, update_t* updates) {
 	}
 
 	char url[4096];
-	get_method_url(url, 4096, bot->token, "getUpdates");
+	get_method_url(url, sizeof(url), bot->token, "getUpdates");
 
-	if (add_url_param_uint(url, 4096, "offset", bot->last_update_id + 1)) {
+	if (add_url_param_uint(url, sizeof(url), "offset", bot->last_update_id + 1)) {
 		printf("%s\n", "ERROR: Error while adding the 'offset' parameter to the request url");
 		return 0;
 	}
 
-	if (add_url_param_uint(url, 4096, "timeout", 1)) {
+	if (add_url_param_uint(url, sizeof(url), "timeout", 1)) {
 		printf("%s\n", "ERROR: Error while adding the 'timeout' parameter to the request url");
 		return 0;
 	}
@@ -226,4 +246,44 @@ uint64_t bot_get_updates(BOT* bot, update_t* updates) {
 	json_object_put(obj);
 
 	return --updates_count;
+}
+
+
+void bot_send_message(BOT* bot, uint64_t chat_id, char* text) {
+	response_t buffer = { NULL };
+	if (curl_easy_setopt(bot->curl, CURLOPT_WRITEDATA, (void*)&buffer) != CURLE_OK) {
+		printf("%s\n", "ERROR: Error during setting the curl flag CURLOPT_WRITEDATA");
+		return 0;
+	}
+
+	char url[4096];
+	get_method_url(url, sizeof(url), bot->token, "sendMessage");
+
+	if (add_url_param_uint(url, sizeof(url), "chat_id", chat_id)) {
+		printf("%s\n", "ERROR: Error while adding the 'chat_id' parameter to the request url");
+		return 0;
+	}
+
+	if (add_url_param_str(url, sizeof(url), "text", text)) {
+		printf("%s\n", "ERROR: Error while adding the 'text' parameter to the request url");
+		return 0;
+	}
+
+	if (curl_easy_setopt(bot->curl, CURLOPT_URL, url) != CURLE_OK) {
+		printf("%s\n", "ERROR: Error during setting the curl flag CURLOPT_URL");
+		return 0;
+	}
+
+	if (curl_easy_perform(bot->curl) != CURLE_OK) {
+		printf("%s\n", "ERROR: Error during https request execution");
+		return 0;
+	}
+
+	json_object* obj = json_tokener_parse(buffer.data);
+	if (json_object_get_boolean(json_object_object_get(obj, "ok")) == 0) {
+		printf("%s\n", "ERROR: The response from the telegram server is false");
+		json_object_put(obj);
+		return 0;
+	}
+	json_object_put(obj);
 }
