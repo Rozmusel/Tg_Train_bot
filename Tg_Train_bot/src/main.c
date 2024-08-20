@@ -12,8 +12,6 @@ int main(void) {
 
     if (bot == NULL) return -1;
 
-    printf("BOT TOKEN: %s\n", bot->token);
-
     bot_start(bot, callback);
 
     bot_delete(bot);
