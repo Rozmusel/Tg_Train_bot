@@ -1,8 +1,8 @@
 #include <stdio.h>
 
 #include "bot.h"
+#include "exercises.h"
 
-int list_id[2] = {0, 0};
 
 void callback(message_t message);
 
@@ -22,8 +22,9 @@ int main(void) {
 
 void callback(message_t message) {
     //printf("%s | %s\n", message.user.username, message.text);
+    int list_id[2] = { 0, 0 };
     if (/*Сообщение соответствует команде List?*/) {
-        update_list_id(&list_id); // Присваивается позиция следующего списка
+        update_list_id(&list_id);// Присваивается позиция следующего списка
         send_list(list_id); // Формирует и отправляет сообщение через использование функций bot.h
         return 0;
     }
