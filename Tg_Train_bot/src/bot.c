@@ -9,6 +9,9 @@
 #include <json-c/json.h>
 
 
+char* parse_modes[] = { "NoParseMode", "MarkdownV2", "HTML", "Markdown" };
+
+
 typedef struct {
 	char* data;
 	size_t size;
@@ -22,7 +25,7 @@ static size_t write_callback(char* data, size_t size, size_t nmemb, void* client
 
 	char* ptr = realloc(resp->data, new_resp_size);
 	if (ptr == NULL) {
-		printf("%s\n", "ERROR: Error during memory reallocation for telegram response");
+		printf("ERROR: Error during memory reallocation for telegram response\n");
 		return 0;
 	}
 
@@ -35,17 +38,17 @@ static size_t write_callback(char* data, size_t size, size_t nmemb, void* client
 }
 
 
-void get_method_url(char* url, size_t url_size, char* token, char* method) {
+static void get_method_url(char* url, size_t url_size, char* token, char* method) {
 	sprintf_s(url, url_size, "https://api.telegram.org/bot%s/%s?", token, method);
 }
 
 
-errno_t add_url_param_str(CURL* curl, char* url, size_t url_size, char* key, char* value) {
+static errno_t add_url_param_str(CURL* curl, char* url, size_t url_size, char* key, char* value) {
 	char data[1024];
 	
 	char* val = curl_easy_escape(curl, value, strlen(value));
 	if (val == NULL) {
-		printf("%s\n", "ERROR: Error during escaping of special characters");
+		printf("ERROR: Error during escaping of special characters\n");
 		return EBADMSG;
 	}
 
@@ -56,7 +59,7 @@ errno_t add_url_param_str(CURL* curl, char* url, size_t url_size, char* key, cha
 }
 
 
-errno_t add_url_param_uint(CURL* curl, char* url, size_t url_size, char* key, uint64_t value) {
+static errno_t add_url_param_uint(CURL* curl, char* url, size_t url_size, char* key, uint64_t value) {
 	char val[1024];
 
 	sprintf_s(val, 1024, "%lld", value);
@@ -65,7 +68,7 @@ errno_t add_url_param_uint(CURL* curl, char* url, size_t url_size, char* key, ui
 }
 
 
-user_t parse_user(json_object* json_user) {
+static user_t parse_user(json_object* json_user) {
 	const char* first_name = json_object_get_string(json_object_object_get(json_user, "first_name"));
 	const char* last_name = json_object_get_string(json_object_object_get(json_user, "last_name"));
 	const char* username = json_object_get_string(json_object_object_get(json_user, "username"));
@@ -81,28 +84,28 @@ user_t parse_user(json_object* json_user) {
 		size_t first_name_size = strlen(first_name) + 1;
 		user.first_name = malloc(first_name_size);
 		if (user.first_name != NULL) memcpy_s(user.first_name, first_name_size, first_name, first_name_size);
-		else printf("%s\n", "ERROR: Error during memory allocation for the user.first_name");
+		else printf("ERROR: Error during memory allocation for the user.first_name\n");
 	}
 
 	if (last_name != NULL) {
 		size_t last_name_size = strlen(last_name) + 1;
 		user.last_name = malloc(last_name_size);
 		if (user.last_name != NULL) memcpy_s(user.last_name, last_name_size, last_name, last_name_size);
-		else printf("%s\n", "ERROR: Error during memory allocation for the user.last_name");
+		else printf("ERROR: Error during memory allocation for the user.last_name\n");
 	}
 
 	if (username != NULL) {
 		size_t username_size = strlen(username) + 1;
 		user.username = malloc(username_size);
 		if (user.username != NULL) memcpy_s(user.username, username_size, username, username_size);
-		else printf("%s\n", "ERROR: Error during memory allocation for the user.username");
+		else printf("ERROR: Error during memory allocation for the user.username\n");
 	}
 
 	return user;
 }
 
 
-chat_t parse_chat(json_object* json_chat) {
+static chat_t parse_chat(json_object* json_chat) {
 	const char* type = json_object_get_string(json_object_object_get(json_chat, "type"));
 
 	chat_t chat = {
@@ -114,14 +117,14 @@ chat_t parse_chat(json_object* json_chat) {
 		size_t type_size = strlen(type) + 1;
 		chat.type = malloc(type_size);
 		if (chat.type != NULL) memcpy_s(chat.type, type_size, type, type_size);
-		else printf("%s\n", "ERROR: Error during memory allocation for the chat.type");
+		else printf("ERROR: Error during memory allocation for the chat.type\n");
 	}
 
 	return chat;
 }
 
 
-message_t parse_message(json_object* json_message) {
+static message_t parse_message(json_object* json_message) {
 	user_t user = parse_user(json_object_object_get(json_message, "from"));
 	chat_t chat = parse_chat(json_object_object_get(json_message, "chat"));
 
@@ -137,14 +140,14 @@ message_t parse_message(json_object* json_message) {
 		size_t text_size = strlen(text) + 1;
 		message.text = malloc(text_size);
 		if (message.text != NULL) memcpy_s(message.text, text_size, text, text_size);
-		else printf("%s\n", "ERROR: Error during memory allocation for the message.text");
+		else printf("ERROR: Error during memory allocation for the message.text\n");
 	}
 
 	return message;
 }
 
 
-update_t parse_update(json_object* json_update) {
+static update_t parse_update(json_object* json_update) {
 	message_t message = parse_message(json_object_object_get(json_update, "message"));
 
 	update_t update = {
@@ -159,13 +162,13 @@ update_t parse_update(json_object* json_update) {
 BOT* bot_create() {
 	BOT* bot = malloc(sizeof(BOT));
 	if (bot == NULL) {
-		printf("%s\n", "ERROR: Error during memory allocation to create a bot structure");
+		printf("ERROR: Error during memory allocation to create a bot structure\n");
 		return NULL;
 	}
 
 	bot->curl = curl_easy_init();
 	if (bot->curl == NULL) {
-		printf("%s\n", "ERROR: Error during initialization of the curl structure");
+		printf("ERROR: Error during initialization of the curl structure\n");
 		free(bot);
 		return NULL;
 	}
@@ -173,14 +176,14 @@ BOT* bot_create() {
 	bot->token = malloc(1024);
 
 	if (curl_easy_setopt(bot->curl, CURLOPT_WRITEFUNCTION, write_callback) != CURLE_OK) {
-		printf("%s\n", "ERROR: Error during setting the curl flag CURLOPT_WRITEFUNCTION");
+		printf("ERROR: Error during setting the curl flag CURLOPT_WRITEFUNCTION\n");
 		bot_delete(bot);
 		return NULL;
 	}
 
 	size_t size = 0;
 	if ((_dupenv_s(&bot->token, &size, "BOT_TOKEN")) || (size == 0)) {
-		printf("%s\n", "ERROR: Error while reading the BOT_TOKEN environment variable");
+		printf("ERROR: Error while reading the BOT_TOKEN environment variable\n");
 		bot_delete(bot);
 		return NULL;
 	}
@@ -218,7 +221,7 @@ uint64_t bot_get_updates(BOT* bot, update_t* updates) {
 	response_t buffer = { NULL, 0 };
 
 	if (curl_easy_setopt(bot->curl, CURLOPT_WRITEDATA, (void*)&buffer) != CURLE_OK) {
-		printf("%s\n", "ERROR: Error during setting the curl flag CURLOPT_WRITEDATA");
+		printf("ERROR: Error during setting the curl flag CURLOPT_WRITEDATA\n");
 		return 0;
 	}
 
@@ -226,29 +229,29 @@ uint64_t bot_get_updates(BOT* bot, update_t* updates) {
 	get_method_url(url, sizeof(url), bot->token, "getUpdates");
 
 	if (add_url_param_uint(bot->curl, url, sizeof(url), "offset", bot->last_update_id + 1)) {
-		printf("%s\n", "ERROR: Error while adding the 'offset' parameter to the request url");
+		printf("ERROR: Error while adding the 'offset' parameter to the request url\n");
 		return 0;
 	}
 
 	if (add_url_param_uint(bot->curl, url, sizeof(url), "timeout", 1)) {
-		printf("%s\n", "ERROR: Error while adding the 'timeout' parameter to the request url");
+		printf("ERROR: Error while adding the 'timeout' parameter to the request url\n");
 		return 0;
 	}
 	
 	if (curl_easy_setopt(bot->curl, CURLOPT_URL, url) != CURLE_OK) {
-		printf("%s\n", "ERROR: Error during setting the curl flag CURLOPT_URL");
+		printf("ERROR: Error during setting the curl flag CURLOPT_URL\n");
 		return 0;
 	}
 
 	if (curl_easy_perform(bot->curl) != CURLE_OK) {
-		printf("%s\n", "ERROR: Error during https request execution");
+		printf("ERROR: Error during https request execution\n");
 		return 0;
 	}
 	
 	json_object* obj = json_tokener_parse(buffer.data);
 	
 	if (json_object_get_boolean(json_object_object_get(obj, "ok")) == 0) {
-		printf("%s\n", "ERROR: The response from the telegram server is false");
+		printf("ERROR: The response from the telegram server is false\n");
 		json_object_put(obj);
 		return 0;
 	}
@@ -268,10 +271,10 @@ uint64_t bot_get_updates(BOT* bot, update_t* updates) {
 }
 
 
-void bot_send_message(BOT* bot, uint64_t chat_id, char* text) {
+void bot_send_message(BOT* bot, uint64_t chat_id, char* text, parse_mode_t parse_mode) {
 	response_t buffer = { NULL, 0 };
 	if (curl_easy_setopt(bot->curl, CURLOPT_WRITEDATA, (void*)&buffer) != CURLE_OK) {
-		printf("%s\n", "ERROR: Error during setting the curl flag CURLOPT_WRITEDATA");
+		printf("ERROR: Error during setting the curl flag CURLOPT_WRITEDATA\n");
 		return;
 	}
 
@@ -279,28 +282,35 @@ void bot_send_message(BOT* bot, uint64_t chat_id, char* text) {
 	get_method_url(url, sizeof(url), bot->token, "sendMessage");
 
 	if (add_url_param_uint(bot->curl, url, sizeof(url), "chat_id", chat_id)) {
-		printf("%s\n", "ERROR: Error while adding the 'chat_id' parameter to the request url");
+		printf("ERROR: Error while adding the 'chat_id' parameter to the request url\n");
 		return;
 	}
 
 	if (add_url_param_str(bot->curl, url, sizeof(url), "text", text)) {
-		printf("%s\n", "ERROR: Error while adding the 'text' parameter to the request url");
+		printf("ERROR: Error while adding the 'text' parameter to the request url\n");
 		return;
 	}
 
+	if (parse_mode) {
+		if (add_url_param_str(bot->curl, url, sizeof(url), "parse_mode", parse_modes[parse_mode])) {
+			printf("ERROR: Error while adding the 'parse_mode' parameter to the request url\n");
+			return;
+		}
+	}
+
 	if (curl_easy_setopt(bot->curl, CURLOPT_URL, url) != CURLE_OK) {
-		printf("%s\n", "ERROR: Error during setting the curl flag CURLOPT_URL");
+		printf("ERROR: Error during setting the curl flag CURLOPT_URL\n");
 		return;
 	}
 
 	if (curl_easy_perform(bot->curl) != CURLE_OK) {
-		printf("%s\n", "ERROR: Error during https request execution");
+		printf("ERROR: Error during https request execution\n");
 		return;
 	}
 
 	json_object* obj = json_tokener_parse(buffer.data);
 	if (json_object_get_boolean(json_object_object_get(obj, "ok")) == 0) {
-		printf("%s\n", "ERROR: The response from the telegram server is false");
+		printf("ERROR: The response from the telegram server is false\n");
 		json_object_put(obj);
 		return;
 	}
