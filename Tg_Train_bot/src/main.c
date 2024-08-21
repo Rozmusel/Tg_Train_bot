@@ -22,8 +22,10 @@ int main(void) {
 
 void callback(BOT* bot, message_t message) {
     printf("%s | %s\n", message.user.username, message.text);
+
     char mes[4096];
     sprintf_s(mes, sizeof(mes), "Hi\nI am telegram bot\nYour message is ||%s||", message.text);
+
     bot_send_message(bot, message.chat.id, mes, MarkdownV2);
 
     // int list_id[2] = { 0, 0 };
