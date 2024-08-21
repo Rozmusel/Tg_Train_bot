@@ -40,21 +40,28 @@ void get_method_url(char* url, size_t url_size, char* token, char* method) {
 }
 
 
-errno_t add_url_param_str(char* url, size_t url_size, char* key, char* value) {
+errno_t add_url_param_str(CURL* curl, char* url, size_t url_size, char* key, char* value) {
 	char data[1024];
+	
+	char* val = curl_easy_escape(curl, value, strlen(value));
+	if (val == NULL) {
+		printf("%s\n", "ERROR: Error during escaping of special characters");
+		return EBADMSG;
+	}
 
-	sprintf_s(data, 1024, "%s=%s&", key, value);
+	sprintf_s(data, 1024, "%s=%s&", key, val);
+	curl_free(val);
 
 	return strcat_s(url, url_size, data);
 }
 
 
-errno_t add_url_param_uint(char* url, size_t url_size, char* key, uint64_t value) {
+errno_t add_url_param_uint(CURL* curl, char* url, size_t url_size, char* key, uint64_t value) {
 	char val[1024];
 
 	sprintf_s(val, 1024, "%lld", value);
 
-	return add_url_param_str(url, url_size, key, val);
+	return add_url_param_str(curl, url, url_size, key, val);
 }
 
 
@@ -218,12 +225,12 @@ uint64_t bot_get_updates(BOT* bot, update_t* updates) {
 	char url[4096];
 	get_method_url(url, sizeof(url), bot->token, "getUpdates");
 
-	if (add_url_param_uint(url, sizeof(url), "offset", bot->last_update_id + 1)) {
+	if (add_url_param_uint(bot->curl, url, sizeof(url), "offset", bot->last_update_id + 1)) {
 		printf("%s\n", "ERROR: Error while adding the 'offset' parameter to the request url");
 		return 0;
 	}
 
-	if (add_url_param_uint(url, sizeof(url), "timeout", 1)) {
+	if (add_url_param_uint(bot->curl, url, sizeof(url), "timeout", 1)) {
 		printf("%s\n", "ERROR: Error while adding the 'timeout' parameter to the request url");
 		return 0;
 	}
@@ -271,12 +278,12 @@ void bot_send_message(BOT* bot, uint64_t chat_id, char* text) {
 	char url[4096];
 	get_method_url(url, sizeof(url), bot->token, "sendMessage");
 
-	if (add_url_param_uint(url, sizeof(url), "chat_id", chat_id)) {
+	if (add_url_param_uint(bot->curl, url, sizeof(url), "chat_id", chat_id)) {
 		printf("%s\n", "ERROR: Error while adding the 'chat_id' parameter to the request url");
 		return;
 	}
 
-	if (add_url_param_str(url, sizeof(url), "text", text)) {
+	if (add_url_param_str(bot->curl, url, sizeof(url), "text", text)) {
 		printf("%s\n", "ERROR: Error while adding the 'text' parameter to the request url");
 		return;
 	}
