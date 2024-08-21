@@ -13,7 +13,7 @@ int get_next_list(int* list_id);	// Returns the list number in the block with th
 void block_finder(int block);	// Finds and hovers the cursor over the desired block
 
 int update_list_id(int* list_id) {
-	errno_t read_res = NULL;	// Storing the result of opening a file
+	errno_t read_res = 0;	// Storing the result of opening a file
 	read_res = fopen_s(&List, "List.txt", "r+");
 	if (read_res != 0) return -1;
 
@@ -60,7 +60,7 @@ int get_next_type() {
 	return day;
 }
 
-get_next_list(int* list_id) {
+int get_next_list(int* list_id) {
 	block_finder(*list_id);
 
 	int cursor = 0;
@@ -95,5 +95,5 @@ void block_finder(int block) {
 		fgets(str, STRSIZE, List);
 		if (str[cursor] == '*') counter++;
 	}
-	return 0;
+	return;
 }
