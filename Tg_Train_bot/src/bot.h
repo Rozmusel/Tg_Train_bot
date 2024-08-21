@@ -10,6 +10,14 @@
 #include <curl/curl.h>
 
 
+typedef enum {
+	NoParseMode = 0,
+	MarkdownV2 = 1,
+	HTML = 2,
+	Markdown = 3
+} parse_mode_t;
+
+
 typedef struct {
 	CURL* curl;
 	char* token;
@@ -50,7 +58,7 @@ void bot_delete(BOT* bot);
 void bot_start(BOT* bot, void (*callback)(BOT*, message_t));
 uint64_t bot_get_updates(BOT* bot, update_t* updates);
 
-void bot_send_message(BOT* bot, uint64_t user_id, char* message);
+void bot_send_message(BOT* bot, uint64_t chat_id, char* text, parse_mode_t parse_mode);
 
 
 #endif // !_BOT_H_

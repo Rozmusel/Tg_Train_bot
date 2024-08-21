@@ -9,6 +9,9 @@
 #include <json-c/json.h>
 
 
+char* parse_modes[] = { "NoParseMode", "MarkdownV2", "HTML", "Markdown" };
+
+
 typedef struct {
 	char* data;
 	size_t size;
@@ -35,12 +38,12 @@ static size_t write_callback(char* data, size_t size, size_t nmemb, void* client
 }
 
 
-void get_method_url(char* url, size_t url_size, char* token, char* method) {
+static void get_method_url(char* url, size_t url_size, char* token, char* method) {
 	sprintf_s(url, url_size, "https://api.telegram.org/bot%s/%s?", token, method);
 }
 
 
-errno_t add_url_param_str(CURL* curl, char* url, size_t url_size, char* key, char* value) {
+static errno_t add_url_param_str(CURL* curl, char* url, size_t url_size, char* key, char* value) {
 	char data[1024];
 	
 	char* val = curl_easy_escape(curl, value, strlen(value));
@@ -56,7 +59,7 @@ errno_t add_url_param_str(CURL* curl, char* url, size_t url_size, char* key, cha
 }
 
 
-errno_t add_url_param_uint(CURL* curl, char* url, size_t url_size, char* key, uint64_t value) {
+static errno_t add_url_param_uint(CURL* curl, char* url, size_t url_size, char* key, uint64_t value) {
 	char val[1024];
 
 	sprintf_s(val, 1024, "%lld", value);
@@ -65,7 +68,7 @@ errno_t add_url_param_uint(CURL* curl, char* url, size_t url_size, char* key, ui
 }
 
 
-user_t parse_user(json_object* json_user) {
+static user_t parse_user(json_object* json_user) {
 	const char* first_name = json_object_get_string(json_object_object_get(json_user, "first_name"));
 	const char* last_name = json_object_get_string(json_object_object_get(json_user, "last_name"));
 	const char* username = json_object_get_string(json_object_object_get(json_user, "username"));
@@ -102,7 +105,7 @@ user_t parse_user(json_object* json_user) {
 }
 
 
-chat_t parse_chat(json_object* json_chat) {
+static chat_t parse_chat(json_object* json_chat) {
 	const char* type = json_object_get_string(json_object_object_get(json_chat, "type"));
 
 	chat_t chat = {
@@ -121,7 +124,7 @@ chat_t parse_chat(json_object* json_chat) {
 }
 
 
-message_t parse_message(json_object* json_message) {
+static message_t parse_message(json_object* json_message) {
 	user_t user = parse_user(json_object_object_get(json_message, "from"));
 	chat_t chat = parse_chat(json_object_object_get(json_message, "chat"));
 
@@ -144,7 +147,7 @@ message_t parse_message(json_object* json_message) {
 }
 
 
-update_t parse_update(json_object* json_update) {
+static update_t parse_update(json_object* json_update) {
 	message_t message = parse_message(json_object_object_get(json_update, "message"));
 
 	update_t update = {
@@ -268,7 +271,7 @@ uint64_t bot_get_updates(BOT* bot, update_t* updates) {
 }
 
 
-void bot_send_message(BOT* bot, uint64_t chat_id, char* text) {
+void bot_send_message(BOT* bot, uint64_t chat_id, char* text, parse_mode_t parse_mode) {
 	response_t buffer = { NULL, 0 };
 	if (curl_easy_setopt(bot->curl, CURLOPT_WRITEDATA, (void*)&buffer) != CURLE_OK) {
 		printf("%s\n", "ERROR: Error during setting the curl flag CURLOPT_WRITEDATA");
@@ -286,6 +289,13 @@ void bot_send_message(BOT* bot, uint64_t chat_id, char* text) {
 	if (add_url_param_str(bot->curl, url, sizeof(url), "text", text)) {
 		printf("%s\n", "ERROR: Error while adding the 'text' parameter to the request url");
 		return;
+	}
+
+	if (parse_mode) {
+		if (add_url_param_str(bot->curl, url, sizeof(url), "parse_mode", parse_modes[parse_mode])) {
+			printf("%s\n", "ERROR: Error while adding the 'text' parameter to the request url");
+			return;
+		}
 	}
 
 	if (curl_easy_setopt(bot->curl, CURLOPT_URL, url) != CURLE_OK) {
