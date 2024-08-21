@@ -12,17 +12,17 @@ int get_next_type();	// Returns the block number taking into account the usage h
 int get_next_list(int* list_id);	// Returns the list number in the block with the least used exercises
 void block_finder(int block);	// Finds and hovers the cursor over the desired block
 
-int update_list_id(int* list_id) {
-	errno_t read_res = 0;	// Storing the result of opening a file
-	read_res = fopen_s(&List, "List.txt", "r+");
-	if (read_res != 0) return -1;
+void update_list_id(int* list_id) {
 
 	*list_id = get_next_type();
-	*++list_id = get_next_list(list_id);
-	return *list_id;
+	list_id++;
+	*list_id = get_next_list(list_id);
 }
 
 int get_next_type() {
+	errno_t read_res = 0;	// Storing the result of opening a file
+	read_res = fopen_s(&List, "List.txt", "r+");
+	if (read_res != 0) return -1;
 	int day = 0;
 	int counter = 0;
 	int cursor = 0;
@@ -30,7 +30,7 @@ int get_next_type() {
 
 	while (!feof(List)) {
 		fgets(str, STRSIZE, List);
-		if (str[cursor] != '*') continue;
+		if (str[cursor] != '#') continue;
 		counter++;
 		while (str[cursor] != '>') {
 			(cursor)++;
@@ -52,28 +52,35 @@ int get_next_type() {
 			break;
 		default:
 			printf("A FATAL ERROR HAS OCCURRED\nUNKNOWN HISTORY PARAMETER VALUE");
-			exit;
 		}
 		fseek(List, 3, SEEK_CUR);
 		cursor = 0;
 	}
+	fclose(List);
 	return day;
 }
 
 int get_next_list(int* list_id) {
+	errno_t read_res = 0;	// Storing the result of opening a file
+	read_res = fopen_s(&List, "List.txt", "r+");
+	if (read_res != 0) return -1;
+	list_id--;
 	block_finder(*list_id);
 
 	int cursor = 0;
 	char str[STRSIZE] = { 0 };
-	char priority[EXRSIZE] = { 0 };
+	int priority[EXRSIZE] = { 0 };
 	int counter = 0;
 	int imin = 1;
 
 	while (!feof(List)) {
 		cursor = 0;
 		fgets(str, STRSIZE, List);
-		if (str[cursor] == '*' ) break;
-		if (str[cursor] == '#') counter++;
+		if (str[cursor] == '#' ) break;
+		if (str[cursor] == '*') {
+			counter++;
+			fgets(str, STRSIZE, List);
+		}
 		while (str[cursor] != '>' && str[cursor] != '/') {
 			cursor++;
 		}
@@ -84,6 +91,7 @@ int get_next_list(int* list_id) {
 	for (int i = 2; i <= counter; i++) {
 		if (priority[i] < priority[imin]) imin = i;
 	}
+	fclose(List);
 	return imin;
 }
 
@@ -93,7 +101,7 @@ void block_finder(int block) {
 	int counter = 0;
 	while (!feof(List) && counter < block) {
 		fgets(str, STRSIZE, List);
-		if (str[cursor] == '*') counter++;
+		if (str[cursor] == '#') counter++;
 	}
 	return;
 }
