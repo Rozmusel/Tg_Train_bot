@@ -181,7 +181,7 @@ void bot_delete(BOT* bot) {
 
 void bot_start(BOT* bot, void (*callback)(BOT*, message_t)) {
 	while (1) {
-		update_t updates[100] = { NULL };
+		update_t updates[100];
 		uint64_t updates_count = bot_get_updates(bot, updates);
 		
 		for (uint64_t i = 0; i < updates_count; ++i) {
@@ -196,7 +196,7 @@ void bot_start(BOT* bot, void (*callback)(BOT*, message_t)) {
 
 
 uint64_t bot_get_updates(BOT* bot, update_t* updates) {
-	response_t buffer = { NULL };
+	response_t buffer = { NULL, 0 };
 
 	if (curl_easy_setopt(bot->curl, CURLOPT_WRITEDATA, (void*)&buffer) != CURLE_OK) {
 		printf("%s\n", "ERROR: Error during setting the curl flag CURLOPT_WRITEDATA");
@@ -250,10 +250,10 @@ uint64_t bot_get_updates(BOT* bot, update_t* updates) {
 
 
 void bot_send_message(BOT* bot, uint64_t chat_id, char* text) {
-	response_t buffer = { NULL };
+	response_t buffer = { NULL, 0 };
 	if (curl_easy_setopt(bot->curl, CURLOPT_WRITEDATA, (void*)&buffer) != CURLE_OK) {
 		printf("%s\n", "ERROR: Error during setting the curl flag CURLOPT_WRITEDATA");
-		return 0;
+		return;
 	}
 
 	char url[4096];
@@ -261,29 +261,29 @@ void bot_send_message(BOT* bot, uint64_t chat_id, char* text) {
 
 	if (add_url_param_uint(url, sizeof(url), "chat_id", chat_id)) {
 		printf("%s\n", "ERROR: Error while adding the 'chat_id' parameter to the request url");
-		return 0;
+		return;
 	}
 
 	if (add_url_param_str(url, sizeof(url), "text", text)) {
 		printf("%s\n", "ERROR: Error while adding the 'text' parameter to the request url");
-		return 0;
+		return;
 	}
 
 	if (curl_easy_setopt(bot->curl, CURLOPT_URL, url) != CURLE_OK) {
 		printf("%s\n", "ERROR: Error during setting the curl flag CURLOPT_URL");
-		return 0;
+		return;
 	}
 
 	if (curl_easy_perform(bot->curl) != CURLE_OK) {
 		printf("%s\n", "ERROR: Error during https request execution");
-		return 0;
+		return;
 	}
 
 	json_object* obj = json_tokener_parse(buffer.data);
 	if (json_object_get_boolean(json_object_object_get(obj, "ok")) == 0) {
 		printf("%s\n", "ERROR: The response from the telegram server is false");
 		json_object_put(obj);
-		return 0;
+		return;
 	}
 	json_object_put(obj);
 }
