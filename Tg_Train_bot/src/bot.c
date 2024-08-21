@@ -18,15 +18,16 @@ typedef struct {
 static size_t write_callback(char* data, size_t size, size_t nmemb, void* clientp) {
 	size_t realsize = size * nmemb;
 	response_t* resp = (response_t*)clientp;
+	size_t new_resp_size = resp->size + realsize + 1;
 
-	char* ptr = realloc(resp->data, resp->size + realsize + 1);
+	char* ptr = realloc(resp->data, new_resp_size);
 	if (ptr == NULL) {
 		printf("%s\n", "ERROR: Error during memory reallocation for telegram response");
 		return 0;
 	}
 
 	resp->data = ptr;
-	memcpy(&(resp->data[resp->size]), data, realsize);
+	memcpy_s(&(resp->data[resp->size]), new_resp_size, data, realsize);
 	resp->size += realsize;
 	resp->data[resp->size] = '\0';
 
@@ -58,33 +59,36 @@ errno_t add_url_param_uint(char* url, size_t url_size, char* key, uint64_t value
 
 
 user_t parse_user(json_object* json_user) {
-	char* first_name = json_object_get_string(json_object_object_get(json_user, "first_name"));
-	char* last_name = json_object_get_string(json_object_object_get(json_user, "last_name"));
-	char* username = json_object_get_string(json_object_object_get(json_user, "username"));
+	const char* first_name = json_object_get_string(json_object_object_get(json_user, "first_name"));
+	const char* last_name = json_object_get_string(json_object_object_get(json_user, "last_name"));
+	const char* username = json_object_get_string(json_object_object_get(json_user, "username"));
 
 	user_t user = {
 		json_object_get_uint64(json_object_object_get(json_user, "id")),
-		"",
-		"",
-		""
+		NULL,
+		NULL,
+		NULL
 	};
 
 	if (first_name != NULL) {
 		size_t first_name_size = strlen(first_name) + 1;
 		user.first_name = malloc(first_name_size);
-		if (user.first_name != NULL) memcpy(user.first_name, first_name, first_name_size);
+		if (user.first_name != NULL) memcpy_s(user.first_name, first_name_size, first_name, first_name_size);
+		else printf("%s\n", "ERROR: Error during memory allocation for the user.first_name");
 	}
 
 	if (last_name != NULL) {
 		size_t last_name_size = strlen(last_name) + 1;
 		user.last_name = malloc(last_name_size);
-		if (user.last_name != NULL) memcpy(user.last_name, last_name, last_name_size);
+		if (user.last_name != NULL) memcpy_s(user.last_name, last_name_size, last_name, last_name_size);
+		else printf("%s\n", "ERROR: Error during memory allocation for the user.last_name");
 	}
 
 	if (username != NULL) {
 		size_t username_size = strlen(username) + 1;
 		user.username = malloc(username_size);
-		if (user.username != NULL) memcpy(user.username, username, username_size);
+		if (user.username != NULL) memcpy_s(user.username, username_size, username, username_size);
+		else printf("%s\n", "ERROR: Error during memory allocation for the user.username");
 	}
 
 	return user;
@@ -92,17 +96,18 @@ user_t parse_user(json_object* json_user) {
 
 
 chat_t parse_chat(json_object* json_chat) {
-	char* type = json_object_get_string(json_object_object_get(json_chat, "type"));
+	const char* type = json_object_get_string(json_object_object_get(json_chat, "type"));
 
 	chat_t chat = {
 		json_object_get_uint64(json_object_object_get(json_chat, "id")),
-		"",
+		NULL,
 	};
 
 	if (type != NULL) {
 		size_t type_size = strlen(type) + 1;
 		chat.type = malloc(type_size);
-		if (chat.type != NULL) memcpy(chat.type, type, type_size);
+		if (chat.type != NULL) memcpy_s(chat.type, type_size, type, type_size);
+		else printf("%s\n", "ERROR: Error during memory allocation for the chat.type");
 	}
 
 	return chat;
@@ -113,18 +118,19 @@ message_t parse_message(json_object* json_message) {
 	user_t user = parse_user(json_object_object_get(json_message, "from"));
 	chat_t chat = parse_chat(json_object_object_get(json_message, "chat"));
 
-	char* text = json_object_get_string(json_object_object_get(json_message, "text"));
+	const char* text = json_object_get_string(json_object_object_get(json_message, "text"));
 
 	message_t message = {
 		user,
 		chat,
-		""
+		NULL
 	};
 
 	if (text != NULL) {
 		size_t text_size = strlen(text) + 1;
 		message.text = malloc(text_size);
-		if (message.text != NULL) memcpy(message.text, text, text_size);
+		if (message.text != NULL) memcpy_s(message.text, text_size, text, text_size);
+		else printf("%s\n", "ERROR: Error during memory allocation for the message.text");
 	}
 
 	return message;
@@ -153,17 +159,22 @@ BOT* bot_create() {
 	bot->curl = curl_easy_init();
 	if (bot->curl == NULL) {
 		printf("%s\n", "ERROR: Error during initialization of the curl structure");
+		free(bot);
 		return NULL;
 	}
 
+	bot->token = malloc(1024);
+
 	if (curl_easy_setopt(bot->curl, CURLOPT_WRITEFUNCTION, write_callback) != CURLE_OK) {
 		printf("%s\n", "ERROR: Error during setting the curl flag CURLOPT_WRITEFUNCTION");
+		bot_delete(bot);
 		return NULL;
 	}
 
 	size_t size = 0;
 	if ((_dupenv_s(&bot->token, &size, "BOT_TOKEN")) || (size == 0)) {
 		printf("%s\n", "ERROR: Error while reading the BOT_TOKEN environment variable");
+		bot_delete(bot);
 		return NULL;
 	}
 
@@ -176,6 +187,7 @@ BOT* bot_create() {
 void bot_delete(BOT* bot) {
 	curl_easy_cleanup(bot->curl);
 	free(bot->token);
+	free(bot);
 }
 
 
