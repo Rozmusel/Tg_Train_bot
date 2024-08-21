@@ -26,7 +26,14 @@ typedef struct {
 
 
 typedef struct {
+	uint64_t id;
+	char* type;
+} chat_t;
+
+
+typedef struct {
 	user_t user;
+	chat_t chat;
 	char* text;
 } message_t;
 
@@ -40,8 +47,10 @@ typedef struct {
 BOT* bot_create();
 void bot_delete(BOT* bot);
 
-void bot_start(BOT* bot, void (*callback)(message_t));
+void bot_start(BOT* bot, void (*callback)(BOT*, message_t));
 uint64_t bot_get_updates(BOT* bot, update_t* updates);
+
+void bot_send_message(BOT* bot, uint64_t user_id, char* message);
 
 
 #endif // !_BOT_H_
