@@ -22,14 +22,11 @@ int main(void) {
 
 void callback(BOT* bot, message_t message) {
     printf("%s | %s\n", message.user.username, message.text);
-
-
-    char mes[4096];
-    sprintf_s(mes, sizeof(mes), "Hi\nI am telegram bot\nYour message is ||%s||", message.text);
-    bot_send_message(bot, message.chat.id, mes, MarkdownV2);
-    int list_id[2] = { 1, 0 };
+    int list_id[2];
+    char exr_list[512];
     if (strcmp(message.text, "List") == 0) {
-        update_list_id(list_id);
-        printf("Block:%d\tNumber:%d\n", list_id[0], list_id[1]);
+        get_list_id(list_id);
+        get_list(list_id, exr_list);
+        bot_send_message(bot, message.chat.id, exr_list, NoParseMode);
     }
 }

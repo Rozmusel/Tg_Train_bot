@@ -5,24 +5,65 @@
 #define STRSIZE 128	// Maximum length of accepted string
 #define NUMSIZE 16	// Maximum length of the number to be read
 #define EXRSIZE 16
-
+#define EXERSISES 8
 FILE* List = NULL;
 
-int get_next_type();	// Returns the block number taking into account the usage history
+void get_next_type(int* list_id);	// Returns the block number taking into account the usage history
 int get_next_list(int* list_id);	// Returns the list number in the block with the least used exercises
 void block_finder(int block);	// Finds and hovers the cursor over the desired block
+void list_finder(int* list_id);
 
-void update_list_id(int* list_id) {
-
-	*list_id = get_next_type();
-	list_id++;
-	*list_id = get_next_list(list_id);
+void get_list_id(int* list_id) {
+	int elem = 0;
+	get_next_type(list_id);
+	elem = get_next_list(list_id);
 }
-
-int get_next_type() {
+void get_list(int* list_id, char exr_list[]) {
+	memset(exr_list, '\0', 512);
 	errno_t read_res = 0;	// Storing the result of opening a file
 	read_res = fopen_s(&List, "List.txt", "r+");
-	if (read_res != 0) return -1;
+	if (read_res != 0) return;
+	int cursor = 0;
+	int ecounter = 0;
+	int scounter = 0;
+	int lcounter = 0;
+	char exercises[EXERSISES][STRSIZE];
+	char str[STRSIZE] = { 0 };
+	block_finder(*list_id);
+	list_id++;
+	list_finder(list_id);
+	while (!feof(List)) {
+		fgets(str, STRSIZE, List);
+		if (str[cursor] == '*' || str[cursor] == '#') break;
+		while (str[cursor] != '>') {
+			exr_list[lcounter] = str[cursor];
+			lcounter++;
+			exercises[ecounter][scounter] = str[cursor];
+			scounter++;
+			cursor++;
+		}
+		exr_list[lcounter] = '\n';
+		lcounter++;
+		ecounter++;
+		scounter = 0;
+		cursor = 0;
+		fgets(str, STRSIZE, List);
+		while (str[cursor] != '\n') {
+			exr_list[lcounter] = str[cursor];
+			lcounter++;
+			cursor++;
+		}
+		cursor = 0;
+		exr_list[lcounter] = '\n';
+		lcounter++;
+	}
+	fclose(List);
+}
+
+void get_next_type(int* list_id) {
+	errno_t read_res = 0;	// Storing the result of opening a file
+	read_res = fopen_s(&List, "List.txt", "r+");
+	if (read_res != 0) return;
 	int day = 0;
 	int counter = 0;
 	int cursor = 0;
@@ -57,14 +98,13 @@ int get_next_type() {
 		cursor = 0;
 	}
 	fclose(List);
-	return day;
+	*list_id = day;
 }
 
 int get_next_list(int* list_id) {
 	errno_t read_res = 0;	// Storing the result of opening a file
 	read_res = fopen_s(&List, "List.txt", "r+");
 	if (read_res != 0) return -1;
-	list_id--;
 	block_finder(*list_id);
 
 	int cursor = 0;
@@ -76,7 +116,7 @@ int get_next_list(int* list_id) {
 	while (!feof(List)) {
 		cursor = 0;
 		fgets(str, STRSIZE, List);
-		if (str[cursor] == '#' ) break;
+		if (str[cursor] == '#') break;
 		if (str[cursor] == '*') {
 			counter++;
 			fgets(str, STRSIZE, List);
@@ -92,16 +132,29 @@ int get_next_list(int* list_id) {
 		if (priority[i] < priority[imin]) imin = i;
 	}
 	fclose(List);
-	return imin;
+	list_id++;
+	*list_id = imin;
+	return counter;
 }
 
 void block_finder(int block) {
 	char str[STRSIZE] = { 0 };
 	int cursor = 0;
 	int counter = 0;
-	while (!feof(List) && counter < block) {
+	while (counter < block) {
 		fgets(str, STRSIZE, List);
 		if (str[cursor] == '#') counter++;
+	}
+	return;
+}
+
+void list_finder(int* list_id) {
+	char str[STRSIZE] = { 0 };
+	int cursor = 0;
+	int counter = 0;
+	while (counter < *list_id) {
+		fgets(str, STRSIZE, List);
+		if (str[cursor] == '*') counter++;
 	}
 	return;
 }

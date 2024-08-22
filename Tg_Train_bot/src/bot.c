@@ -44,7 +44,7 @@ static void get_method_url(char* url, size_t url_size, char* token, char* method
 
 
 static errno_t add_url_param_str(CURL* curl, char* url, size_t url_size, char* key, char* value) {
-	char data[1024];
+	char data[2048];
 	
 	char* val = curl_easy_escape(curl, value, strlen(value));
 	if (val == NULL) {
@@ -52,7 +52,7 @@ static errno_t add_url_param_str(CURL* curl, char* url, size_t url_size, char* k
 		return EBADMSG;
 	}
 
-	sprintf_s(data, 1024, "%s=%s&", key, val);
+	sprintf_s(data, 2048, "%s=%s&", key, val);
 	curl_free(val);
 
 	return strcat_s(url, url_size, data);
@@ -278,7 +278,7 @@ void bot_send_message(BOT* bot, uint64_t chat_id, char* text, parse_mode_t parse
 		return;
 	}
 
-	char url[4096];
+	char url[16384];
 	get_method_url(url, sizeof(url), bot->token, "sendMessage");
 
 	if (add_url_param_uint(bot->curl, url, sizeof(url), "chat_id", chat_id)) {
