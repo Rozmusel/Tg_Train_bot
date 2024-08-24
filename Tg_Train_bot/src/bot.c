@@ -52,7 +52,7 @@ static errno_t add_url_param_str(CURL* curl, char* url, size_t url_size, char* k
 		return EBADMSG;
 	}
 
-	sprintf_s(data, 2048, "%s=%s&", key, val);
+	sprintf_s(data, sizeof(data), "%s=%s&", key, val);
 	curl_free(val);
 
 	return strcat_s(url, url_size, data);
@@ -62,7 +62,7 @@ static errno_t add_url_param_str(CURL* curl, char* url, size_t url_size, char* k
 static errno_t add_url_param_uint(CURL* curl, char* url, size_t url_size, char* key, uint64_t value) {
 	char val[1024];
 
-	sprintf_s(val, 1024, "%lld", value);
+	sprintf_s(val, sizeof(val), "%lld", value);
 
 	return add_url_param_str(curl, url, url_size, key, val);
 }
@@ -175,8 +175,9 @@ BOT* bot_create() {
 
 	bot->token = malloc(1024);
 
-	if (curl_easy_setopt(bot->curl, CURLOPT_WRITEFUNCTION, write_callback) != CURLE_OK) {
-		printf("ERROR: Error during setting the curl flag CURLOPT_WRITEFUNCTION\n");
+	CURLcode curl_code = curl_easy_setopt(bot->curl, CURLOPT_WRITEFUNCTION, write_callback);
+	if (curl_code != CURLE_OK) {
+		printf("ERROR: Error during setting the curl flag CURLOPT_WRITEFUNCTION (%s)\n", curl_easy_strerror(curl_code));
 		bot_delete(bot);
 		return NULL;
 	}
@@ -218,10 +219,12 @@ void bot_start(BOT* bot, void (*callback)(BOT*, message_t)) {
 
 
 uint64_t bot_get_updates(BOT* bot, update_t* updates) {
+	CURLcode curl_code = CURLE_OK;
 	response_t buffer = { NULL, 0 };
 
-	if (curl_easy_setopt(bot->curl, CURLOPT_WRITEDATA, (void*)&buffer) != CURLE_OK) {
-		printf("ERROR: Error during setting the curl flag CURLOPT_WRITEDATA\n");
+	curl_code = curl_easy_setopt(bot->curl, CURLOPT_WRITEDATA, (void*)&buffer);
+	if (curl_code != CURLE_OK) {
+		printf("ERROR: Error during setting the curl flag CURLOPT_WRITEDATA (%s)\n", curl_easy_strerror(curl_code));
 		return 0;
 	}
 
@@ -238,20 +241,24 @@ uint64_t bot_get_updates(BOT* bot, update_t* updates) {
 		return 0;
 	}
 	
-	if (curl_easy_setopt(bot->curl, CURLOPT_URL, url) != CURLE_OK) {
-		printf("ERROR: Error during setting the curl flag CURLOPT_URL\n");
+	curl_code = curl_easy_setopt(bot->curl, CURLOPT_URL, url);
+	if (curl_code != CURLE_OK) {
+		printf("ERROR: Error during setting the curl flag CURLOPT_URL (%s)\n", curl_easy_strerror(curl_code));
 		return 0;
 	}
 
-	if (curl_easy_perform(bot->curl) != CURLE_OK) {
-		printf("ERROR: Error during https request execution\n");
+	curl_code = curl_easy_perform(bot->curl);
+	if (curl_code != CURLE_OK) {
+		printf("ERROR: Error during https request execution (%s)\n", curl_easy_strerror(curl_code));
 		return 0;
 	}
 	
 	json_object* obj = json_tokener_parse(buffer.data);
 	
 	if (json_object_get_boolean(json_object_object_get(obj, "ok")) == 0) {
-		printf("ERROR: The response from the telegram server is false\n");
+		int32_t error_code = json_object_get_int(json_object_object_get(obj, "error_code"));
+		const char* description = json_object_get_string(json_object_object_get(obj, "description"));
+		printf("ERROR: The response from the telegram server is false (%i - %s)\n", error_code, description);
 		json_object_put(obj);
 		return 0;
 	}
@@ -272,9 +279,12 @@ uint64_t bot_get_updates(BOT* bot, update_t* updates) {
 
 
 void bot_send_message(BOT* bot, uint64_t chat_id, char* text, parse_mode_t parse_mode) {
+	CURLcode curl_code = CURLE_OK;
 	response_t buffer = { NULL, 0 };
-	if (curl_easy_setopt(bot->curl, CURLOPT_WRITEDATA, (void*)&buffer) != CURLE_OK) {
-		printf("ERROR: Error during setting the curl flag CURLOPT_WRITEDATA\n");
+
+	curl_code = curl_easy_setopt(bot->curl, CURLOPT_WRITEDATA, (void*)&buffer);
+	if (curl_code != CURLE_OK) {
+		printf("ERROR: Error during setting the curl flag CURLOPT_WRITEDATA (%s)\n", curl_easy_strerror(curl_code));
 		return;
 	}
 
@@ -291,26 +301,30 @@ void bot_send_message(BOT* bot, uint64_t chat_id, char* text, parse_mode_t parse
 		return;
 	}
 
-	if (parse_mode) {
+	if (parse_mode != NoParseMode) {
 		if (add_url_param_str(bot->curl, url, sizeof(url), "parse_mode", parse_modes[parse_mode])) {
 			printf("ERROR: Error while adding the 'parse_mode' parameter to the request url\n");
 			return;
 		}
 	}
 
-	if (curl_easy_setopt(bot->curl, CURLOPT_URL, url) != CURLE_OK) {
-		printf("ERROR: Error during setting the curl flag CURLOPT_URL\n");
+	curl_code = curl_easy_setopt(bot->curl, CURLOPT_URL, url);
+	if (curl_code != CURLE_OK) {
+		printf("ERROR: Error during setting the curl flag CURLOPT_URL (%s)\n", curl_easy_strerror(curl_code));
 		return;
 	}
 
-	if (curl_easy_perform(bot->curl) != CURLE_OK) {
-		printf("ERROR: Error during https request execution\n");
+	curl_code = curl_easy_perform(bot->curl);
+	if (curl_code != CURLE_OK) {
+		printf("ERROR: Error during https request execution (%s)\n", curl_easy_strerror(curl_code));
 		return;
 	}
 
 	json_object* obj = json_tokener_parse(buffer.data);
 	if (json_object_get_boolean(json_object_object_get(obj, "ok")) == 0) {
-		printf("ERROR: The response from the telegram server is false\n");
+		int32_t error_code = json_object_get_int(json_object_object_get(obj, "error_code"));
+		const char* description = json_object_get_string(json_object_object_get(obj, "description"));
+		printf("ERROR: The response from the telegram server is false (%i - %s)\n", error_code, description);
 		json_object_put(obj);
 		return;
 	}
