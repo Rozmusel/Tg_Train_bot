@@ -309,20 +309,21 @@ uint64_t bot_get_updates(BOT* bot, update_t* updates) {
 }
 
 
-void bot_send_message(BOT* bot, uint64_t chat_id, char* text, parse_mode_t parse_mode) {
+errno_t bot_send_message(BOT* bot, uint64_t chat_id, char* text, parse_mode_t parse_mode) {
 	CURLcode curl_code = CURLE_OK;
+	errno_t result = 0;
 	response_t buffer = { NULL, 0 };
 
 	curl_code = curl_easy_setopt(bot->curl, CURLOPT_WRITEDATA, (void*)&buffer);
 	if (curl_code != CURLE_OK) {
 		printf("ERROR: Error during setting the curl flag CURLOPT_WRITEDATA (%s)\n", curl_easy_strerror(curl_code));
-		return;
+		return EBADMSG;
 	}
 
 	char* encoded_text = curl_easy_escape(bot->curl, text, strlen(text));
 	if (encoded_text == NULL) {
 		printf("ERROR: Error during escaping of special characters\n");
-		return;
+		return EBADMSG;
 	}
 	const uint64_t uint_param_count = 1;
 	const uint64_t str_param_count = 1;
@@ -344,28 +345,31 @@ void bot_send_message(BOT* bot, uint64_t chat_id, char* text, parse_mode_t parse
 	char* url = malloc(url_size);
 	if (url == NULL) {
 		printf("ERROR: Error during memory allocation for url\n");
-		return;
+		return ENOMEM;
 	}
 
 	get_method_url(url, url_size, bot->token, "sendMessage");
 
-	if (add_url_param_uint(bot->curl, url, url_size, "chat_id", chat_id)) {
+	result = add_url_param_uint(bot->curl, url, url_size, "chat_id", chat_id);
+	if (result != 0) {
 		printf("ERROR: Error while adding the 'chat_id' parameter to the request url\n");
 		free(url);
-		return;
+		return result;
 	}
 
-	if (add_url_param_str(bot->curl, url, url_size, "text", text)) {
+	result = add_url_param_str(bot->curl, url, url_size, "text", text);
+	if (result != 0) {
 		printf("ERROR: Error while adding the 'text' parameter to the request url\n");
 		free(url);
-		return;
+		return result;
 	}
 
 	if (parse_mode != NoParseMode) {
-		if (add_url_param_str(bot->curl, url, url_size, "parse_mode", parse_modes[parse_mode])) {
+		result = add_url_param_str(bot->curl, url, url_size, "parse_mode", parse_modes[parse_mode]);
+		if (result != 0) {
 			printf("ERROR: Error while adding the 'parse_mode' parameter to the request url\n");
 			free(url);
-			return;
+			return result;
 		}
 	}
 
@@ -373,14 +377,14 @@ void bot_send_message(BOT* bot, uint64_t chat_id, char* text, parse_mode_t parse
 	if (curl_code != CURLE_OK) {
 		printf("ERROR: Error during setting the curl flag CURLOPT_URL (%s)\n", curl_easy_strerror(curl_code));
 		free(url);
-		return;
+		return EBADMSG;
 	}
 
 	curl_code = curl_easy_perform(bot->curl);
 	if (curl_code != CURLE_OK) {
 		printf("ERROR: Error during https request execution (%s)\n", curl_easy_strerror(curl_code));
 		free(url);
-		return;
+		return EBADMSG;
 	}
 	free(url);
 
@@ -390,7 +394,9 @@ void bot_send_message(BOT* bot, uint64_t chat_id, char* text, parse_mode_t parse
 		const char* description = json_object_get_string(json_object_object_get(obj, "description"));
 		printf("ERROR: The response from the telegram server is false (%i - %s)\n", error_code, description);
 		json_object_put(obj);
-		return;
+		return EBADMSG;
 	}
 	json_object_put(obj);
+
+	return 0;
 }

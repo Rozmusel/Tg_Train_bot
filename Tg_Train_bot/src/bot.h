@@ -58,7 +58,7 @@ void bot_delete(BOT* bot);
 void bot_start(BOT* bot, void (*callback)(BOT*, message_t));
 uint64_t bot_get_updates(BOT* bot, update_t* updates);
 
-void bot_send_message(BOT* bot, uint64_t chat_id, char* text, parse_mode_t parse_mode);
+errno_t bot_send_message(BOT* bot, uint64_t chat_id, char* text, parse_mode_t parse_mode);
 
 
 #endif // !_BOT_H_
