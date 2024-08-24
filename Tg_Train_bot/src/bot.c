@@ -319,6 +319,11 @@ void bot_send_message(BOT* bot, uint64_t chat_id, char* text, parse_mode_t parse
 		return;
 	}
 
+	char* encoded_text = curl_easy_escape(bot->curl, text, strlen(text));
+	if (encoded_text == NULL) {
+		printf("ERROR: Error during escaping of special characters\n");
+		return;
+	}
 	const uint64_t uint_param_count = 1;
 	const uint64_t str_param_count = 1;
 	const uint64_t param_count = uint_param_count + str_param_count + (parse_mode != NoParseMode ? 1 : 0);
@@ -331,9 +336,10 @@ void bot_send_message(BOT* bot, uint64_t chat_id, char* text, parse_mode_t parse
 		strlen("text") +
 		(parse_mode != NoParseMode ? strlen("parse_mode") : 0) +
 		20 * uint_param_count +
-		strlen(curl_easy_escape(bot->curl, text, strlen(text))) +
+		strlen(encoded_text) +
 		(parse_mode != NoParseMode ? strlen(parse_modes[parse_mode]) : 0)
 		+ 1;
+	curl_free(encoded_text);
 
 	char* url = malloc(url_size);
 	if (url == NULL) {
