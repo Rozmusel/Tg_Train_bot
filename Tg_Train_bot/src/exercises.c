@@ -8,12 +8,14 @@
 #define NUMSIZE 16	// Maximum length of the number to be read
 #define EXRSIZE 16
 FILE* List = NULL;
+FILE* List_EDIT = NULL;
 
 void get_next_block(int* list_id);	// The number of the next block is written to the passed array.
 void get_next_list(int* list_id);	// The number of the next list is written to the passed array.
 void block_finder(int block);	// Finds and hovers the cursor over the desired block
 void list_finder(int* list_id);
 int get_min();
+int edit_check();
 
 void get_list_id(int* list_id) {
 	get_next_block(list_id);
@@ -217,5 +219,61 @@ int get_min() {
 		if (buf == 0) return 0;
 		cursor = 0;
 	}
+	return 1;
+}
+
+int edit_exr(char exr_list[], int list_id[], char* edit) {
+	if (edit_check() == 0) return 0;
+	errno_t read_res = 0;
+	read_res = fopen_s(&List, "List.txt", "r+");
+	if (read_res != 0) return -1;
+
+	int exr = (int)edit[0] - 48;
+	char str[STRSIZE] = { 0 };
+	char new_str[STRSIZE] = { 0 };
+
+	read_res = fopen_s(&List_EDIT, "List_edit.txt", "w");
+	if (read_res != 0) return -1;
+	int iblock = 0;
+	int ilist = 0;
+	int counter = 1;
+	while (iblock < *list_id) {
+		fgets(str, STRSIZE, List);
+		if (str[0] == '#') iblock++;
+		fprintf(List_EDIT, "%s", str);
+	}
+	list_id++;
+	while (ilist < *list_id) {
+		fgets(str, STRSIZE, List);
+		if (str[0] == '*') ilist++;
+		fprintf(List_EDIT, "%s", str);
+	}
+	fgets(str, STRSIZE, List);
+	fprintf(List_EDIT, "%s", str);
+	fgets(str, STRSIZE, List);
+	while (counter < exr) {
+		fprintf(List_EDIT, "%s", str);
+		fgets(str, STRSIZE, List);
+		fprintf(List_EDIT, "%s", str);
+		fgets(str, STRSIZE, List);
+		counter++;
+	}
+	for (int i = 0; i < STRSIZE; i++) {
+		new_str[i] = edit[i + 3];
+	}
+	fputs(new_str, List_EDIT);
+	fputc('\n', List_EDIT);
+	while(!feof(List)){
+		fgets(str, STRSIZE, List);
+		fprintf(List_EDIT, "%s", str);
+	}
+	fclose(List);
+	fclose(List_EDIT);
+	remove("List.txt");
+	if (rename("List_edit.txt", "List.txt") == 0) return -1;
+	return 1;
+}
+
+int edit_check() {	// Здесь будет проверка на корректность введёных данных
 	return 1;
 }

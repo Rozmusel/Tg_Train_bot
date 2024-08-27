@@ -9,10 +9,15 @@
 #define MAX_MSG_LEN 512
 #define MAX_EXR_LEN 1024
 
+int list_id[2]; // Block and exercise number
+char exr_list[MAX_EXR_LEN];
+
 void callback(BOT* bot, message_t message);
 
 
 int main(void) {
+    memset(exr_list, '\0', MAX_EXR_LEN);
+
     setlocale(LC_ALL, "rus");   // for working with isdigit
 
     BOT* bot = bot_create();
@@ -29,10 +34,8 @@ int main(void) {
 
 void callback(BOT* bot, message_t message) {
     printf("%s | %s\n", message.user.username, message.text);
-    int list_id[2]; // Block and exercise number
-    char exr_list[MAX_EXR_LEN];
-    memset(exr_list, '\0', MAX_EXR_LEN);
     if (strcmp(message.text, "/list") == 0 || strcmp(message.text, "Список") == 0) {
+        memset(exr_list, '\0', MAX_EXR_LEN);
         get_list_id(list_id);
         get_list(list_id, exr_list);
         bot_send_message(bot, message.chat.id, exr_list, NoParseMode);
@@ -42,7 +45,7 @@ void callback(BOT* bot, message_t message) {
             bot_send_message(bot, message.chat.id, "Сначала откройте список", NoParseMode);
             return;
         }
-        /*if (edit_exr(exr_list, message.chat.id) == 0) {
+        if (edit_exr(exr_list, list_id, message.text) == 0) {
             bot_send_message(
                 bot,
                 message.chat.id,
@@ -50,7 +53,7 @@ void callback(BOT* bot, message_t message) {
                 NoParseMode
             );
             return;
-        }*/
+        }
         bot_send_message(bot, message.chat.id, "Изменения применены", NoParseMode);
     }
     if (strcmp(message.text, "Справка") == 0 || strcmp(message.text, "/help") == 0) {
