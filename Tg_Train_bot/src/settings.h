@@ -1,3 +1,3 @@
 ﻿#pragma once
 
-#define MAX_MSG_LEN 512
+#define EXERSISES 16	// Поддерживаемое количество упражнений в списке

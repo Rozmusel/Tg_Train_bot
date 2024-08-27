@@ -2,32 +2,33 @@
 #include <windows.h>
 #include <locale.h>
 
+#include "settings.h"
+
 #define STRSIZE 128	// Maximum length of accepted string
 #define NUMSIZE 16	// Maximum length of the number to be read
 #define EXRSIZE 16
-#define EXERSISES 8
 FILE* List = NULL;
 
-void get_next_type(int* list_id);	// Returns the block number taking into account the usage history
-int get_next_list(int* list_id);	// Returns the list number in the block with the least used exercises
+void get_next_block(int* list_id);	// The number of the next block is written to the passed array.
+void get_next_list(int* list_id);	// The number of the next list is written to the passed array.
 void block_finder(int block);	// Finds and hovers the cursor over the desired block
 void list_finder(int* list_id);
+int get_min();
 
 void get_list_id(int* list_id) {
-	int elem = 0;
-	get_next_type(list_id);
-	elem = get_next_list(list_id);
+	get_next_block(list_id);
+	get_next_list(list_id);
 }
 void get_list(int* list_id, char exr_list[]) {
-	memset(exr_list, '\0', 512);
-	errno_t read_res = 0;	// Storing the result of opening a file
+	errno_t read_res = 0;
 	read_res = fopen_s(&List, "List.txt", "r+");
 	if (read_res != 0) return;
-	int cursor = 0;
-	int ecounter = 0;
-	int scounter = 0;
-	int lcounter = 0;
+	int cursor = 0;	// Cursor for reading
+	int ecounter = 0;	// Column count in exercise list to record
+	int scounter = 0;	// Counting the line in the exercise list for recording
+	int lcounter = 0;	// Counting a line in a common sheet for recording
 	char exercises[EXERSISES][STRSIZE];
+	memset(exercises, '\0', sizeof(exercises));
 	char str[STRSIZE] = { 0 };
 	block_finder(*list_id);
 	list_id++;
@@ -57,11 +58,46 @@ void get_list(int* list_id, char exr_list[]) {
 		exr_list[lcounter] = '\n';
 		lcounter++;
 	}
+	int min;
+	min = get_min();
+	int flag = 0;
+	char buf[STRSIZE];
+	memset(buf, '\0', STRSIZE);
+	fseek(List, 0, SEEK_SET);
+	while (!feof(List)) {
+		fgets(str, STRSIZE, List);
+		if (str[cursor] == '*' || str[cursor] == '#') continue;
+		while (str[cursor] != '>') {
+			buf[cursor] = str[cursor];
+			cursor++;
+		}
+		cursor++;
+		for (int j = 0; strcmp("", exercises[j]) != 0; j++) {
+			if (strcmp(buf, exercises[j]) == 0) {
+				int num = (int)str[cursor] - 47 - min;
+				char cnum = (char)(num + 48);
+				fseek(List, -3, SEEK_CUR);
+				putc(cnum, List);
+				flag = 1;
+			}
+		}
+		if (flag == 0) {
+			int num = (int)str[cursor] - 48 - min;
+			char cnum = (char)(num + 48);
+			fseek(List, -3, SEEK_CUR);
+			putc(cnum, List);
+		}
+		fseek(List, 3, SEEK_CUR);
+		fgets(str, STRSIZE, List);
+		cursor = 0;
+		flag = 0;
+		memset(buf, '\0', STRSIZE);
+	}
 	fclose(List);
 }
 
-void get_next_type(int* list_id) {
-	errno_t read_res = 0;	// Storing the result of opening a file
+void get_next_block(int* list_id) {
+	errno_t read_res = 0;
 	read_res = fopen_s(&List, "List.txt", "r+");
 	if (read_res != 0) return;
 	int day = 0;
@@ -101,40 +137,46 @@ void get_next_type(int* list_id) {
 	*list_id = day;
 }
 
-int get_next_list(int* list_id) {
-	errno_t read_res = 0;	// Storing the result of opening a file
+void get_next_list(int* list_id) {
+	errno_t read_res = 0;
 	read_res = fopen_s(&List, "List.txt", "r+");
-	if (read_res != 0) return -1;
+	if (read_res != 0) return;
 	block_finder(*list_id);
 
 	int cursor = 0;
 	char str[STRSIZE] = { 0 };
-	int priority[EXRSIZE] = { 0 };
+	float priority[EXRSIZE] = { 0 };
 	int counter = 0;
-	int imin = 1;
+	int imin = 0;
+	int exercises = 0;
+	fgets(str, STRSIZE, List);
 
 	while (!feof(List)) {
 		cursor = 0;
 		fgets(str, STRSIZE, List);
 		if (str[cursor] == '#') break;
 		if (str[cursor] == '*') {
-			counter++;
 			fgets(str, STRSIZE, List);
+			priority[counter] /= exercises;
+			counter++;
+			exercises = 0;
 		}
-		while (str[cursor] != '>' && str[cursor] != '/') {
+		if (isdigit(str[cursor])) continue;
+		while (str[cursor] != '>') {
 			cursor++;
 		}
-		if (str[cursor] == '/') continue;
 		cursor++;
-		priority[counter] += (int)str[cursor] - 48;
+		exercises++;
+		priority[counter] += (float)str[cursor] - 48;
+		
 	}
-	for (int i = 2; i <= counter; i++) {
+	priority[counter] /= exercises;
+	for (int i = 1; i <= counter; i++) {
 		if (priority[i] < priority[imin]) imin = i;
 	}
 	fclose(List);
 	list_id++;
-	*list_id = imin;
-	return counter;
+	*list_id = imin + 1;
 }
 
 void block_finder(int block) {
@@ -157,4 +199,23 @@ void list_finder(int* list_id) {
 		if (str[cursor] == '*') counter++;
 	}
 	return;
+}
+
+int get_min() {
+	fseek(List, 0, SEEK_SET);
+	char str[STRSIZE] = { 0 };
+	int cursor = 0;
+	int buf;
+	while (!feof(List)) {
+		fgets(str, STRSIZE, List);
+		if (str[cursor] == '*' || str[cursor] == '#' || isdigit(str[cursor])) continue;
+		while (str[cursor] != '>') {
+			cursor++;
+		}
+		cursor++;
+		buf = (float)str[cursor] - 48;
+		if (buf == 0) return 0;
+		cursor = 0;
+	}
+	return 1;
 }
