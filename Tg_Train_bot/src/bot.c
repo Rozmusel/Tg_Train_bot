@@ -140,6 +140,7 @@ static message_t parse_message(json_object* json_message) {
 	const char* text = json_object_get_string(json_object_object_get(json_message, "text"));
 
 	message_t message = {
+		NULL,
 		user,
 		chat,
 		NULL
@@ -157,14 +158,43 @@ static message_t parse_message(json_object* json_message) {
 
 
 static update_t parse_update(json_object* json_update) {
-	message_t message = parse_message(json_object_object_get(json_update, "message"));
+    message_t message = { 0 };  // Initialize to zero
+    
+    // Check for callback_query first
+    json_object* callback_query = json_object_object_get(json_update, "callback_query");
+    if (callback_query != NULL) {
+        // Parse the callback data
+        const char* callback_data = json_object_get_string(json_object_object_get(callback_query, "data"));
+        if (callback_data != NULL) {
+            const size_t callback_data_size = strlen(callback_data) + 1;
+            message.callback_data = malloc(callback_data_size);
+            if (message.callback_data != NULL) {
+                memcpy_s(message.callback_data, callback_data_size, callback_data, callback_data_size);
+            } else {
+                printf("ERROR: Error during memory allocation for callback_data\n");
+            }
+        }
+        
+        // Parse user and chat from callback_query
+        message.user = parse_user(json_object_object_get(callback_query, "from"));
+        json_object* message_obj = json_object_object_get(callback_query, "message");
+        if (message_obj != NULL) {
+            message.chat = parse_chat(json_object_object_get(message_obj, "chat"));
+        }
+    } else {
+        // Regular message parsing
+        json_object* msg = json_object_object_get(json_update, "message");
+        if (msg != NULL) {
+            message = parse_message(msg);
+        }
+    }
 
-	update_t update = {
-		json_object_get_uint64(json_object_object_get(json_update, "update_id")),
-		message
-	};
+    update_t update = {
+        json_object_get_uint64(json_object_object_get(json_update, "update_id")),
+        message
+    };
 
-	return update;
+    return update;
 }
 
 
@@ -215,7 +245,7 @@ void bot_start(BOT* bot, void (*callback)(BOT*, message_t)) {
 	while (1) {
 		update_t updates[100]; // max telegram bot api response - 100 update_t (information from telegram bot api specification)
 		uint64_t updates_count = bot_get_updates(bot, updates);
-		
+
 		for (uint64_t i = 0; i < updates_count; ++i) {
 			update_t update = updates[i];
 			(*callback)(bot, update.message);
@@ -248,7 +278,7 @@ uint64_t bot_get_updates(BOT* bot, update_t* updates) {
 		strlen("timeout") +
 		20 * uint_param_count
 		+ 1;
-	
+
 	char* url = malloc(url_size);
 	if (url == NULL) {
 		printf("ERROR: Error during memory allocation for url\n");
@@ -268,7 +298,7 @@ uint64_t bot_get_updates(BOT* bot, update_t* updates) {
 		free(url);
 		return 0;
 	}
-	
+
 	curl_code = curl_easy_setopt(bot->curl, CURLOPT_URL, url);
 	if (curl_code != CURLE_OK) {
 		printf("ERROR: Error during setting the curl flag CURLOPT_URL (%s)\n", curl_easy_strerror(curl_code));
@@ -283,9 +313,9 @@ uint64_t bot_get_updates(BOT* bot, update_t* updates) {
 		return 0;
 	}
 	free(url);
-	
+
 	json_object* obj = json_tokener_parse(buffer.data);
-	
+
 	if (json_object_get_boolean(json_object_object_get(obj, "ok")) == 0) {
 		int32_t error_code = json_object_get_int(json_object_object_get(obj, "error_code"));
 		const char* description = json_object_get_string(json_object_object_get(obj, "description"));
@@ -398,5 +428,104 @@ errno_t bot_send_message(BOT* bot, uint64_t chat_id, char* text, parse_mode_t pa
 	}
 	json_object_put(obj);
 
+	return 0;
+}
+static errno_t add_inline_keyboard(CURL* curl, char* url, size_t url_size, const char** buttons, size_t button_count) {
+	// Create the base JSON structure for inline keyboard markup
+	json_object* keyboard_markup = json_object_new_object();
+	json_object* keyboard = json_object_new_array();
+
+	// Create a row of buttons
+	json_object* row = json_object_new_array();
+
+	// Add each button to the row
+	for (size_t i = 0; i < button_count; i++) {
+		json_object* button = json_object_new_object();
+		json_object_object_add(button, "text", json_object_new_string(buttons[i]));
+		json_object_object_add(button, "callback_data", json_object_new_string(buttons[i]));
+		json_object_array_add(row, button);
+	}
+
+	// Add the row to the keyboard
+	(keyboard, row);
+
+	// Add the keyboard to the markup
+	json_object_object_add(keyboard_markup, "inline_keyboard", keyboard);
+
+	// Get the JSON string
+	const char* json_str = json_object_to_json_string(keyboard_markup);
+
+	// Add it as a URL parameter
+	errno_t result = add_url_param_str(curl, url, url_size, "reply_markup", json_str);
+
+	// Clean up
+	json_object_put(keyboard_markup);
+
+	return result;
+}
+
+// Example usage in bot_send_message function:
+errno_t bot_send_message_with_keyboard(BOT* bot, uint64_t chat_id, char* text, const char** buttons, size_t button_count) {
+	CURLcode curl_code = CURLE_OK;
+	errno_t result = 0;
+	response_t buffer = { NULL, 0 };
+
+	curl_code = curl_easy_setopt(bot->curl, CURLOPT_WRITEDATA, (void*)&buffer);
+	if (curl_code != CURLE_OK) {
+		printf("ERROR: Error during setting the curl flag CURLOPT_WRITEDATA (%s)\n", curl_easy_strerror(curl_code));
+		return EBADMSG;
+	}
+
+	// Calculate URL size including space for the keyboard
+	const size_t url_size = strlen("https://api.telegram.org/bot/?") +
+		strlen(bot->token) +
+		strlen("sendMessage") +
+		strlen("chat_id") +
+		strlen("text") +
+		strlen(text) +
+		1024; // Extra space for keyboard JSON
+
+	char* url = malloc(url_size);
+	if (url == NULL) {
+		printf("ERROR: Error during memory allocation for url\n");
+		return ENOMEM;
+	}
+
+	get_method_url(url, url_size, bot->token, "sendMessage");
+
+	// Add required parameters
+	result = add_url_param_uint(bot->curl, url, url_size, "chat_id", chat_id);
+	if (result != 0) {
+		free(url);
+		return result;
+	}
+
+	result = add_url_param_str(bot->curl, url, url_size, "text", text);
+	if (result != 0) {
+		free(url);
+		return result;
+	}
+
+	// Add inline keyboard
+	result = add_inline_keyboard(bot->curl, url, url_size, buttons, button_count);
+	if (result != 0) {
+		free(url);
+		return result;
+	}
+
+	// Send request
+	curl_code = curl_easy_setopt(bot->curl, CURLOPT_URL, url);
+	if (curl_code != CURLE_OK) {
+		free(url);
+		return EBADMSG;
+	}
+
+	curl_code = curl_easy_perform(bot->curl);
+	if (curl_code != CURLE_OK) {
+		free(url);
+		return EBADMSG;
+	}
+
+	free(url);
 	return 0;
 }

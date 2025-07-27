@@ -40,6 +40,7 @@ typedef struct {
 
 
 typedef struct {
+	char* callback_data;  // Add this field for callback query data
 	user_t user;
 	chat_t chat;
 	char* text;
@@ -55,9 +56,10 @@ typedef struct {
 BOT* bot_create();
 void bot_delete(BOT* bot);
 
+errno_t bot_send_message_with_keyboard(BOT* bot, uint64_t chat_id, char* text, const char** buttons, size_t button_count);
 void bot_start(BOT* bot, void (*callback)(BOT*, message_t));
 uint64_t bot_get_updates(BOT* bot, update_t* updates);
 errno_t bot_send_message(BOT* bot, uint64_t chat_id, char* text, parse_mode_t parse_mode);
-
+errno_t bot_send_message_with_keyboard(BOT* bot, uint64_t chat_id, char* text, const char** buttons, size_t button_count);
 
 #endif // !_BOT_H_
